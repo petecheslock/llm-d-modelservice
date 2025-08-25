@@ -22,6 +22,31 @@ modelArtifacts:
 # When true, a LeaderWorkerSet is used instead of a Deployment
 multinode: false
 
+# Global accelerator configuration
+# Supported types: nvidia, intel, amd, google
+accelerator:
+  # Type of accelerator to use
+  type: nvidia
+  # Resource names for different accelerator types
+  resources:
+    nvidia: "nvidia.com/gpu"
+    intel: "gpu.intel.com/i915"
+    amd: "amd.com/gpu"
+    google: "google.com/tpu"
+  # Environment variables specific to accelerator types
+  env:
+    intel:
+      - name: ZE_ENABLE_PCI_ID_DEVICE_ORDER
+        value: "1"
+      - name: SYCL_DEVICE_FILTER
+        value: "gpu"
+      - name: ZE_AFFINITY_MASK
+        value: "0"
+      - name: VLLM_USE_V1
+        value: "1"
+      - name: CCL_ZE_IPC_EXCHANGE
+        value: "pidfd"
+
 # Describe routing requirements. In addition to service level routing (OpenAI model name, service port)
 # also describes elements for Gateway API Inference Extension configuration
 routing:
@@ -34,6 +59,7 @@ routing:
   # Configuration of VLLM routing sidecar
   # cf. https://github.com/llm-d/llm-d-routing-sidecar/
   proxy:
+    enabled: true
     image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0
     # target port on which VLLM should listen
     targetPort: 8200

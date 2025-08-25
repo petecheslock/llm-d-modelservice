@@ -92,9 +92,9 @@ affinity:
             {{- end }}
 {{- end }}
 {{- end }}
-
 {{/* Create the init container for the routing proxy/sidecar for decode pods */}}
 {{- define "llm-d-modelservice.routingProxy" -}}
+{{- if or (not (hasKey .proxy "enabled")) (ne .proxy.enabled false) -}}
 initContainers:
   - name: routing-proxy
     args:
@@ -121,6 +121,7 @@ initContainers:
       allowPrivilegeEscalation: false
       runAsNonRoot: true
 {{- end }}
+{{- end }}
 
 {{/* Desired P/D tensor parallelism -- user set or defaults to 1 */}}
 {{- define "llm-d-modelservice.tensorParallelism" -}}
@@ -140,22 +141,47 @@ Context is helm root context plus key "role" ("decode" or "prefill")
 {{- if eq .role "prefill" }}{{ .Values.routing.servicePort }}{{ else }}{{ .Values.routing.proxy.targetPort }}{{ end }}
 {{- end }}
 
+{{/* Get accelerator resource name based on type */}}
+{{- define "llm-d-modelservice.acceleratorResource" -}}
+{{- $acceleratorType := .Values.accelerator.type | default "nvidia" -}}
+{{- if and .container .container.image (contains "llm-d-inference-sim" .container.image) -}}
+{{/* No resource name for llm-d-inference-sim */}}
+{{- else if hasKey .Values.accelerator.resources $acceleratorType -}}
+{{- index .Values.accelerator.resources $acceleratorType -}}
+{{- else -}}
+nvidia.com/gpu
+{{- end -}}
+{{- end }}
+
+{{/* Get accelerator environment variables based on type */}}
+{{- define "llm-d-modelservice.acceleratorEnv" -}}
+{{- $acceleratorType := .Values.accelerator.type | default "nvidia" -}}
+{{- if and (ne $acceleratorType "cpu") (hasKey .Values.accelerator.env $acceleratorType) -}}
+{{- $envVars := index .Values.accelerator.env $acceleratorType -}}
+{{- range $envVars }}
+- name: {{ .name }}
+  value: {{ .value | quote }}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
 {{/* P/D deployment container resources */}}
 {{- define "llm-d-modelservice.resources" -}}
 {{- $tensorParallelism := int (include "llm-d-modelservice.tensorParallelism" .parallelism) -}}
+{{- $acceleratorResource := include "llm-d-modelservice.acceleratorResource" . -}}
 {{- $limits := dict }}
 {{- if and .resources .resources.limits }}
 {{- $limits = deepCopy .resources.limits }}
 {{- end }}
-{{- if gt (int $tensorParallelism) 1 }}
-{{- $limits = mergeOverwrite $limits (dict "nvidia.com/gpu" $tensorParallelism) }}
+{{- if and (ge (int $tensorParallelism) 1) (ne $acceleratorResource "") }}
+{{- $limits = mergeOverwrite $limits (dict $acceleratorResource (toString $tensorParallelism)) }}
 {{- end }}
 {{- $requests := dict }}
 {{- if and .resources .resources.requests }}
 {{- $requests = deepCopy .resources.requests }}
 {{- end }}
-{{- if gt (int $tensorParallelism) 1 }}
-{{- $requests = mergeOverwrite $requests (dict "nvidia.com/gpu" $tensorParallelism) }}
+{{- if and (ge (int $tensorParallelism) 1) (ne $acceleratorResource "") }}
+{{- $requests = mergeOverwrite $requests (dict $acceleratorResource (toString $tensorParallelism)) }}
 {{- end }}
 resources:
   limits:
@@ -345,6 +371,9 @@ context is a dict with helm root context plus:
   {{- (include "llm-d-modelservice.parallelismEnv" .) | nindent 2 }}
   {{- /* insert envs based on what modelArtifact prefix */}}
   {{- (include "llm-d-modelservice.hfEnv" .) | nindent 2 }}
+  {{- /* Add accelerator-specific environment variables */}}
+  {{- $acceleratorEnv := include "llm-d-modelservice.acceleratorEnv" . }}
+  {{- if $acceleratorEnv }}{{ $acceleratorEnv | nindent 2 }}{{- end }}
   {{- with .container.ports }}
   ports:
     {{- include "common.tplvalues.render" ( dict "value" . "context" $ ) | nindent 2 }}
@@ -364,7 +393,7 @@ context is a dict with helm root context plus:
   startupProbe:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- (include "llm-d-modelservice.resources" (dict "resources" .container.resources "parallelism" .parallelism)) | nindent 2 }}
+  {{- (include "llm-d-modelservice.resources" (dict "resources" .container.resources "parallelism" .parallelism "container" .container "Values" .Values)) | nindent 2 }}
   {{- include "llm-d-modelservice.mountModelVolumeVolumeMounts" (dict "container" .container "Values" .Values) | nindent 2 }}
   {{- /* DEPRECATED; use extraConfig.workingDir instead */ -}}
   {{- with .container.workingDir }}
