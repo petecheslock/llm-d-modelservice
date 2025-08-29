@@ -6,7 +6,7 @@ The ModelService Helm Chart proposal is accepted on June 10, 2025. Read more abo
 
 TL;DR:
 
-Active scearios supported:
+Active scenarios supported:
 - P/D disaggregation
 - Multi-node inference, utilizing data parallelism
 - One pod per node (see [`llm-d-infra`](https://github.com/llm-d-incubation/llm-d-infra/tree/main/quickstart/examples/wide-ep-lws) for the ModelService [values](https://github.com/llm-d-incubation/llm-d-infra/tree/main/quickstart/examples/wide-ep-lws/ms-wide-ep/values.yaml) file)
@@ -28,9 +28,7 @@ helm repo add llm-d-modelservice https://llm-d-incubation.github.io/llm-d-models
 helm repo update
 ```
 
-ModelService operates under the assumption that `llm-d-infra` has been installed in a Kuberentes cluster, which installs the required prerequisites and CRDs. Read the [`llm-d-infra` Quickstart](https://github.com/llm-d-incubation/llm-d-infra/tree/main/quickstart) for more information.
-
-At a minimal, follow [these steps](https://github.com/llm-d-incubation/llm-d-infra/blob/main/quickstart/README-step-by-step.md#1-installing-gaie-kubernetes-infrastructure) to install the required external CRDs as the ModelService helm chart depends on them.
+ModelService operates under the assumption that `llm-d-infra` has been installed in a Kubernetes cluster, which installs the required prerequisites and CRDs. Read the [`llm-d-infra` Quickstart](https://github.com/llm-d-incubation/llm-d-infra/tree/main/quickstart) for more information.
 
 Note that in order to create HTTPRoute objects last, Helm hooks are used. As a consequence, these objects are not deleted when `helm delete` is executed. They should be manually deleted to avoid unexpected routing problems.
 
@@ -70,7 +68,7 @@ Below are the values you can set.
 | `routing.epp.service.type`             | Type of Service created for the Inference Scheduler (Endpoint Picker) deployment                                  | string       | ClusterIP                                   |
 | `routing.epp.service.port`             | The port the Inference Scheduler listens on                                                                       | int          | 9002                                        |
 | `routing.epp.service.targetPort`       | The target port the Inference Scheduler listens on                                                                | int          | 9002                                        |
-| `routing.epp.service.appProtocol`      | The app portocol the Inference Scheduler uses                                                                     | int          | 9002                                        |
+| `routing.epp.service.appProtocol`      | The app protocol the Inference Scheduler uses                                                                     | int          | 9002                                        |
 | `routing.epp.image`                    | Image to be used for the epp container                                                                            | string       | ghcr.io/llm-d/llm-d-inference-scheduler:0.0.4` |
 | `routing.epp.replicas`                 | Number of replicas for the Inference Scheduler pod                                                                | int          | 1                                           |
 | `routing.epp.debugLevel`               | Debug level used to start the Inference Scheduler pod                                                             | int          | 4                                           |
@@ -103,4 +101,4 @@ We welcome contributions to llm-d-modelservice! Please see our [Contributing Gui
 Please open a ticket if you see a gap in your use case as we continue to evolve this project.
 
 ## Contact
-Get involved or ask questions in the `#sig-model-service` channel in the `llm-d` Slack workspace! Details on how to join the workspace can be found [here](https://github.com/llm-d/llm-d?tab=readme-ov-file#contribute).
+Get involved or ask questions in the `#sig-model-service` channel in the `llm-d` Slack workspace! Details on how to join the workspace can be found [here](https://llm-d.ai/docs/community).
